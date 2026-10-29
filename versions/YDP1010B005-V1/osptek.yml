@@ -1,0 +1,10 @@
+id: YDP1010B005-V1
+category: displays
+size: "10.1"
+panel: tft
+resolution: 800x1280
+interface: [mipi]
+driver: JD9366
+touch: null
+outline: 140.36 x 226.96 mm
+active_area: 135.36 x 216.58 mm
