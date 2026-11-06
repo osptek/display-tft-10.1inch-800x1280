@@ -1,0 +1,260 @@
+#include <dt-bindings/display/drm_mipi_dsi.h>
+#include <dt-bindings/input/rk-input.h>
+#include <dt-bindings/suspend/rockchip-rk3506.h>
+
+/ {
+	vcc_mipi_pwren: vcc-mipi_pwren-regulator {
+		compatible = "regulator-fixed";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-name = "vcc_mipi_pwren";
+		enable-active-high;
+		gpio = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
+		pinctrl-name = "default";
+		pinctrl-0 = <&mipi_pwren_gpio>;
+	};
+};
+
+&dsi {
+	status = "okay";
+	//rockchip,lane-rate = <1000>;
+	dsi_panel: panel@0 {
+		status = "okay";
+		compatible = "simple-panel-dsi";
+		reg = <0>;
+		backlight = <&backlight>;
+		// power-supply = <&vcc3v3_lcd_n>;
+		// reset-gpio = <&gpio1 RK_PB0 GPIO_ACTIVE_LOW>;
+		reset-delay-ms = <10>;
+		enable-delay-ms = <10>;
+		prepare-delay-ms = <10>;
+		unprepare-delay-ms = <10>;
+		disable-delay-ms = <60>;
+		//width-mm = <68>;
+		//height-mm = <121>;
+		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+				  MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+		dsi,format = <MIPI_DSI_FMT_RGB888>;
+		dsi,lanes  = <2>;
+
+                // 10.1-inch JD9366 (800x1280) 初始化序列
+		panel-init-sequence = [
+			/* Page 1 */
+			39 00 02 30 01
+			39 00 05 78 49 61 02 00
+			/* Page 2 */
+			39 00 02 30 02
+			39 00 02 31 12
+			39 00 02 32 08
+			39 00 02 33 3f
+			39 00 02 3c 04
+			39 00 02 3d 78
+			39 00 02 3e 43
+			39 00 02 3f 30
+			39 00 02 42 a2
+			39 00 02 43 f0
+			39 00 02 44 01
+			39 00 02 46 17
+			39 00 02 49 c0
+			39 00 02 6d 30
+			39 00 02 6e 21
+			39 00 0d 41 5b 5b 03 03 5b 5b 02 02 03 03 03 03
+			39 00 0c 5a 00 00 34 34 31 31 23 23 24 24 23
+			39 00 0c 5b 23 0b 0b 09 09 0f 0f 0d 0d 06 06
+			39 00 0c 5c 00 00 34 34 31 31 23 23 24 24 23
+			39 00 0c 5d 23 0a 0a 08 08 0e 0e 0c 0c 05 05
+			39 00 0c 5e 00 00 31 31 34 34 23 23 24 24 23
+			39 00 0c 5f 23 0c 0c 0e 0e 08 08 0a 0a 05 05
+			39 00 0c 60 00 00 31 31 34 34 23 23 24 24 23
+			39 00 0c 61 23 0d 0d 0f 0f 09 09 0b 0b 06 06
+			39 00 04 64 ff ff 3f
+			39 00 04 65 ff ff 3f
+			39 00 04 6f 03 00 00
+			39 00 04 70 03 00 00
+			39 00 04 71 00 00 80
+			39 00 04 72 00 00 00
+			39 00 03 4c 22 22
+			39 00 02 73 2a
+			39 00 03 4e 00 00
+			39 00 03 50 00 00
+			39 00 03 55 ff ff
+			39 00 03 56 ff ff
+			39 00 03 57 00 00
+			39 00 03 58 ff ff
+			39 00 03 66 ff ff
+			39 00 03 67 ff ff
+			39 00 02 4a 3f
+			/* Page 8 */
+			39 00 02 30 08
+			39 00 02 31 65
+			39 00 02 33 05
+			39 00 02 40 50
+			39 00 02 41 80
+			39 00 02 42 1a
+			39 00 02 47 0a
+			39 00 02 48 0d
+			39 00 02 50 17
+			39 00 02 5a 20
+			39 00 02 5b 00
+			39 00 02 5c 53
+			39 00 02 5D 0D
+			39 00 02 5F 01
+			39 00 02 62 04
+			39 00 02 65 5f
+			39 00 02 73 01
+			/* Page A */
+			39 00 02 30 0a
+			39 00 02 32 ff
+			39 00 02 33 28
+			39 00 02 3f 53
+			39 00 02 40 15
+			39 00 02 47 20
+			39 00 02 48 80
+			39 00 02 49 03
+			/* Page B Gamma */
+			39 00 02 30 0b
+			39 00 03 33 00 3d
+			39 00 03 3c 00 bf
+			39 00 02 43 b1
+			39 00 02 44 31
+			39 00 06 3e 00 10 1e 27 2f
+			39 00 0f 3f 54 6f 73 7c 77 91 90 99 a8 a5 ae b5 c5 b8
+			39 00 0a 40 52 52 53 7f 00 10 1e 27 2f
+			39 00 0f 41 54 6f 73 7c 77 91 98 99 a8 a5 ae b5 c5 b8
+			39 00 05 42 52 52 53 7f
+			39 00 02 45 70
+			39 00 02 46 3b
+			39 00 02 48 7c
+			39 00 02 49 1e
+			39 00 02 4a 3a
+			/* Page C */
+			39 00 02 30 0c
+			39 00 02 32 62
+			39 00 02 71 77
+			/* Page D */
+			39 00 02 30 0d
+			39 00 02 4c 74
+			/* Back to Page 0 */
+			39 00 02 30 00
+			/* TE on */
+			39 00 02 35 00
+			/* Sleep out */
+			05 78 01 11
+			/* Display on */
+			05 14 01 29
+		];
+
+		disp_timings0: display-timings {
+			native-mode = <&dsi_timing0>;
+			dsi_timing0: timing0 {
+				clock-frequency = <76000000>;//60fps
+
+				hactive = <800>;
+				vactive = <1280>;
+
+				vsync-len = <8>;
+				vback-porch = <140>;
+				vfront-porch = <20>;
+
+				hsync-len = <8>;
+				hback-porch = <40>;
+				hfront-porch = <28>;
+
+				vsync-active = <0>;
+				hsync-active = <0>;
+				de-active = <0>;
+				pixelclk-active = <0>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				panel_in_dsi: endpoint {
+					remote-endpoint = <&dsi_out_panel>;
+					status = "okay";
+				};
+			};
+		};
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+			dsi_out_panel: endpoint {
+				remote-endpoint = <&panel_in_dsi>;
+			};
+		};
+	};
+};
+
+&display_subsystem {
+	status = "okay";
+	logo-memory-region = <&drm_logo>;
+};
+
+&vop {
+	status = "okay";
+};
+
+&dsi_in_vop {
+	status = "okay";
+};
+
+&rgb_in_vop {
+	status = "disabled";
+};
+
+&route_dsi {
+	status = "okay";
+	//logo,rotate = <3>;
+};
+
+&route_rgb {
+	status = "disabled";
+};
+
+&dsi_dphy {
+	status = "okay";
+};
+
+&backlight {
+	compatible = "pwm-backlight";
+	pwms = <&pwm0_4ch_2 0 10000 0>;
+	status = "okay";
+};
+
+// TOUCH
+&i2c2 {
+	status = "okay";
+	pinctrl-0 = <&rm_io4_i2c2_scl &rm_io5_i2c2_sda>;
+
+        jd9366: jd9366@68 {
+		status = "okay";
+		compatible = "jd9366_touch";  /* 匹配 jd9366_of_match */
+		reg = <0x68>;                     /* I2C 设备地址 */
+		pinctrl-names = "default";
+
+		touchscreen-size-x = <800>;       /* 匹配 10.1 寸 JD9366 分辨率 */
+		touchscreen-size-y = <1280>;
+
+		/* 坐标翻转/镜像（按需开启） */
+		// touchscreen-inverted-x;
+		// touchscreen-inverted-y;
+		// touchscreen-swapped-x-y;
+	};
+};
+
+&pinctrl {
+	mipi_lcd{
+		mipi_pwren_gpio: mipi_pwren_gpio {
+			rockchip,pins = <1 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+};
