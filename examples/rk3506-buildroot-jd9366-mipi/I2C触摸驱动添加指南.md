@@ -30,10 +30,10 @@ nano /home/jin/rk3506-work/rk3506_linux6.1_sdk_v1.2.0_evb/kernel-6.1/drivers/inp
 
 ```
 config TOUCHSCREEN_JD9366
-	tristate "Sitronix JD9366 touchscreen support"
+	tristate "JD9366 touchscreen support"
 	depends on I2C
 	help
-	  Say Y here if you have Sitronix JD9366 I2C touchscreen controller.
+	  Say Y here if you have JD9366 I2C touchscreen controller.
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called jd9366.
@@ -52,13 +52,13 @@ cd /home/jin/rk3506-work/rk3506_linux6.1_sdk_v1.2.0_evb/
 
 # 第二步：修改设备树 DTS 节点
 
-打开 `rk3506-luckfox-lyra-ultra.dtsi`，找到 `&i2c2` 节点
+打开 `vanxoak-hd-rk3506-evb-mipi-800x1280.dtsi`，找到 `&i2c2` 节点
 
 ```
 &i2c2 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&rm_io1_i2c2_scl &rm_io0_i2c2_sda>;[cite: 1]
+	pinctrl-0 = <&rm_io1_i2c2_scl &rm_io0_i2c2_sda>;
 
     jd9366: jd9366@68 {
 		status = "okay";
@@ -94,7 +94,7 @@ cd /home/jin/rk3506-work/rk3506_linux6.1_sdk_v1.2.0_evb/
 cat /proc/bus/input/devices | grep -A 5 -i "jd9366"
 ```
 
-查看输出中的 `Handlers=eventX`（例如 `event10 或 `event1`）。
+查看输出中的 `Handlers=eventX`（例如 `event0 或 `event1`）。
 
 **运行 evtest**：
 
