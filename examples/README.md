@@ -11,8 +11,7 @@ They are reference code; adjust pins, backlight, touch and other settings to you
 | [`rk3506-buildroot-jd9366-mipi`](./rk3506-buildroot-jd9366-mipi/) | Rockchip RK3506 · Linux | JD9366 | MIPI | 设备树与触摸驱动参考、I2C 触摸驱动添加指南 / Device tree and touch driver reference, I2C touch driver guide |
 | [`esp32p4-idf5-jd9366-mipi-lvgl-port-lvgl9`](./esp32p4-idf5-jd9366-mipi-lvgl-port-lvgl9/) | ESP32-P4 · ESP-IDF 5 | JD9366 | MIPI | LVGL 9 / LVGL 9 |
 | [`esp32p4-idf5-jd9366-mipi-lvgl-port-lvgl9-ppa`](./esp32p4-idf5-jd9366-mipi-lvgl-port-lvgl9-ppa/) | ESP32-P4 · ESP-IDF 5 | JD9366 | MIPI | LVGL 9、PPA 硬件加速 / LVGL 9, PPA acceleration |
-| [`esp32p4-idf6-jd9366-mipi-lvgl-port-lvgl9`](./esp32p4-idf6-jd9366-mipi-lvgl-port-lvgl9/) | ESP32-P4 · ESP-IDF 6 | JD9366 | MIPI | LVGL 9 / LVGL 9 |
-| [`esp32p4-idf6-jd9366-mipi-lvgl-port-lvgl9-ppa`](./esp32p4-idf6-jd9366-mipi-lvgl-port-lvgl9-ppa/) | ESP32-P4 · ESP-IDF 6 | JD9366 | MIPI | LVGL 9、PPA 硬件加速 / LVGL 9, PPA acceleration |
+| [`esp32p4-idf6_jd9366-mipi_esp-lvgl-port_lvgl9_ppa`](./esp32p4-idf6_jd9366-mipi_esp-lvgl-port_lvgl9_ppa/) | ESP32-P4 · ESP-IDF 6 | JD9366 | MIPI | LVGL 9、PPA 硬件加速 / LVGL 9, PPA acceleration |
 | [`esp32p4-idf6_jd9366-mipi_osptek-boot-anim_lvgl9`](./esp32p4-idf6_jd9366-mipi_osptek-boot-anim_lvgl9/) | ESP32-P4 · ESP-IDF 6 | JD9366 | MIPI | 开机动画+防撕裂+lvgl9 / Boot animation + anti-tearing + LVGL 9 |
 | [`rpi5-lvgl-jd9366-touch-800x1280`](./rpi5-lvgl-jd9366-touch-800x1280/) | Raspberry Pi 5 | JD9366 | MIPI DSI | LVGL、触摸 / LVGL, touch |
 | [`rpi5-panel-jd9366-800x1280`](./rpi5-panel-jd9366-800x1280/) | Raspberry Pi 5 | JD9366 | MIPI DSI | 面板驱动（仅显示）/ panel driver (display only) |

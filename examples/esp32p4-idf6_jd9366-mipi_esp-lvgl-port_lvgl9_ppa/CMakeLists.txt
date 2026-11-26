@@ -5,4 +5,4 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(esp32p4-idf6_jd9366-mipi_esp-lvgl-port_lvgl9)
+project(esp32p4-idf6_jd9366-mipi_esp-lvgl-port_lvgl9_ppa)

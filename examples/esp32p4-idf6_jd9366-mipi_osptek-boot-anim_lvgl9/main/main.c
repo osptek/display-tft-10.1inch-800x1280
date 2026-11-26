@@ -1,3 +1,9 @@
+/* 带电烧录代码时，按boot键关闭显示，在烧录代码。（主要解决带电烧录代码闪屏问题） */
+/* Press the BOOT button to turn off the display before flashing firmware while powered on
+ * (mainly to reduce screen flicker during live flashing). */
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
@@ -25,34 +31,41 @@
 #define EXAMPLE_LCD_V_RES   (1280)
 
 #if LV_COLOR_DEPTH == 16
-#define MIPI_DPI_PX_FORMAT (LCD_COLOR_FMT_RGB565)
-#define BSP_LCD_COLOR_DEPTH (16)
+#define MIPI_DPI_PX_FORMAT    (LCD_COLOR_FMT_RGB565)
+#define BSP_LCD_COLOR_DEPTH   (16)
 #elif LV_COLOR_DEPTH == 24
-#define MIPI_DPI_PX_FORMAT (LCD_COLOR_FMT_RGB888)
-#define BSP_LCD_COLOR_DEPTH (24)
+#define MIPI_DPI_PX_FORMAT    (LCD_COLOR_FMT_RGB888)
+#define BSP_LCD_COLOR_DEPTH   (24)
+#else
+#error "Unsupported LV_COLOR_DEPTH"
 #endif
 
 /* “VDD_MIPI_DPHY”应供电 2.5V，可从内部 LDO 稳压器或外部 LDO 芯片获取电源 */
-#define EXAMPLE_MIPI_DSI_PHY_PWR_LDO_CHAN 3 // LDO_VO3 连接至 VDD_MIPI_DPHY
+#define EXAMPLE_MIPI_DSI_PHY_PWR_LDO_CHAN       3 // LDO_VO3 连接至 VDD_MIPI_DPHY
 #define EXAMPLE_MIPI_DSI_PHY_PWR_LDO_VOLTAGE_MV 2500
-#define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL 1
-#define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
-#define EXAMPLE_PIN_NUM_BK_LIGHT -1
-#define EXAMPLE_PIN_NUM_LCD_RST  -1
+#define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL           1
+#define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL          (!EXAMPLE_LCD_BK_LIGHT_ON_LEVEL)
+#define EXAMPLE_PIN_NUM_BK_LIGHT                (-1)
+#define EXAMPLE_PIN_NUM_LCD_RST                 (-1)
+
+/* ESP32-P4 BOOT 按键引脚（默认上拉，按下为低电平） */
+#define BOOT_BUTTON_GPIO                        GPIO_NUM_35
+#define BOOT_BTN_ACTIVE_LEVEL                   0
+#define BOOT_BTN_DEBOUNCE_MS                    30
 
 /* Touch settings */
-#define EXAMPLE_TOUCH_I2C_NUM       (0)
-#define EXAMPLE_TOUCH_I2C_CLK_HZ    (400000)
+#define EXAMPLE_TOUCH_I2C_NUM                   (0)
+#define EXAMPLE_TOUCH_I2C_CLK_HZ                (400000)
 
 /* LCD touch pins */
-#define EXAMPLE_TOUCH_I2C_SCL       (GPIO_NUM_8)
-#define EXAMPLE_TOUCH_I2C_SDA       (GPIO_NUM_7)
-#define EXAMPLE_TOUCH_RST           (GPIO_NUM_NC)
-#define EXAMPLE_TOUCH_INT           (GPIO_NUM_NC)
+#define EXAMPLE_TOUCH_I2C_SCL                   (GPIO_NUM_8)
+#define EXAMPLE_TOUCH_I2C_SDA                   (GPIO_NUM_7)
+#define EXAMPLE_TOUCH_RST                       (GPIO_NUM_NC)
+#define EXAMPLE_TOUCH_INT                       (GPIO_NUM_NC)
 
 /* 旋转与防撕裂（MIPI 默认 TRIPLE_PARTIAL） */
-#define EXAMPLE_LV_ROTATION         ESP_LV_ADAPTER_ROTATE_0
-#define EXAMPLE_TEAR_AVOID_MODE     ESP_LV_ADAPTER_TEAR_AVOID_MODE_DEFAULT_MIPI_DSI
+#define EXAMPLE_LV_ROTATION                     ESP_LV_ADAPTER_ROTATE_0
+#define EXAMPLE_TEAR_AVOID_MODE                 ESP_LV_ADAPTER_TEAR_AVOID_MODE_DEFAULT_MIPI_DSI
 
 static const char *TAG = "EXAMPLE";
 
@@ -64,6 +77,9 @@ static esp_lcd_touch_handle_t touch_handle = NULL;
 /* LVGL display and touch */
 static lv_display_t *lvgl_disp = NULL;
 static lv_indev_t *lvgl_touch_indev = NULL;
+
+/* 屏幕显示状态 */
+static volatile bool s_screen_on = true;
 
 /* EFC player context */
 static mmap_assets_handle_t s_assets;
@@ -196,7 +212,11 @@ static void example_bsp_init_lcd_backlight(void)
 #if EXAMPLE_PIN_NUM_BK_LIGHT >= 0
     gpio_config_t bk_gpio_config = {
         .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT};
+        .pin_bit_mask = 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
     ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
 #endif
 }
@@ -204,8 +224,86 @@ static void example_bsp_init_lcd_backlight(void)
 static void example_bsp_set_lcd_backlight(uint32_t level)
 {
 #if EXAMPLE_PIN_NUM_BK_LIGHT >= 0
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, level);
+    ESP_ERROR_CHECK(gpio_set_level((gpio_num_t)EXAMPLE_PIN_NUM_BK_LIGHT, level));
+#else
+    (void)level;
 #endif
+}
+
+static esp_err_t app_set_screen_power(bool enable)
+{
+    if (lcd_panel == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (esp_lv_adapter_lock(pdMS_TO_TICKS(200)) == ESP_OK) {
+        if (enable) {
+            esp_err_t err = esp_lcd_panel_disp_on_off(lcd_panel, true);
+            if (err == ESP_OK) {
+                example_bsp_set_lcd_backlight(EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
+                if (lvgl_disp != NULL) {
+                    lv_obj_invalidate(lv_screen_active());
+                }
+            }
+            esp_lv_adapter_unlock();
+            ESP_RETURN_ON_ERROR(err, TAG, "Display ON failed");
+        } else {
+            example_bsp_set_lcd_backlight(EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL);
+            esp_err_t err = esp_lcd_panel_disp_on_off(lcd_panel, false);
+            esp_lv_adapter_unlock();
+            ESP_RETURN_ON_ERROR(err, TAG, "Display OFF failed");
+        }
+    } else {
+        ESP_LOGW(TAG, "Adapter lock timeout, toggling panel directly");
+        if (!enable) {
+            example_bsp_set_lcd_backlight(EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL);
+        }
+        ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(lcd_panel, enable), TAG, "Display toggle failed");
+        if (enable) {
+            example_bsp_set_lcd_backlight(EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
+        }
+    }
+
+    s_screen_on = enable;
+    ESP_LOGI(TAG, "Screen state: %s", s_screen_on ? "ON" : "OFF");
+    return ESP_OK;
+}
+
+static void boot_button_task(void *arg)
+{
+    (void)arg;
+
+    gpio_config_t btn_cfg = {
+        .pin_bit_mask = 1ULL << BOOT_BUTTON_GPIO,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&btn_cfg));
+
+    int last_level = gpio_get_level(BOOT_BUTTON_GPIO);
+
+    while (1) {
+        int level = gpio_get_level(BOOT_BUTTON_GPIO);
+
+        if (level != last_level) {
+            vTaskDelay(pdMS_TO_TICKS(BOOT_BTN_DEBOUNCE_MS));
+            int stable_level = gpio_get_level(BOOT_BUTTON_GPIO);
+
+            if (stable_level == level) {
+                last_level = stable_level;
+                if (stable_level == BOOT_BTN_ACTIVE_LEVEL) {
+                    esp_err_t ret = app_set_screen_power(!s_screen_on);
+                    if (ret != ESP_OK) {
+                        ESP_LOGE(TAG, "Failed to switch screen power: %s", esp_err_to_name(ret));
+                    }
+                }
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 }
 
 static esp_err_t app_lcd_init(void)
@@ -221,7 +319,7 @@ static esp_err_t app_lcd_init(void)
         EXAMPLE_TEAR_AVOID_MODE, EXAMPLE_LV_ROTATION);
 
     // 首先创建 MIPI DSI 总线，它还将初始化 DSI PHY
-    esp_lcd_dsi_bus_handle_t mipi_dsi_bus;
+    esp_lcd_dsi_bus_handle_t mipi_dsi_bus = NULL;
     esp_lcd_dsi_bus_config_t bus_config = {
         .bus_id = 0,
         .num_data_lanes = 2,
@@ -274,6 +372,8 @@ static esp_err_t app_lcd_init(void)
     ESP_GOTO_ON_ERROR(esp_lcd_panel_init(lcd_panel), err, TAG, "LCD init failed");
     ESP_GOTO_ON_ERROR(esp_lcd_panel_disp_on_off(lcd_panel, true), err, TAG, "LCD init failed");
 
+    s_screen_on = true;
+
     // 打开背光
     example_bsp_set_lcd_backlight(EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
 
@@ -298,14 +398,14 @@ static esp_err_t app_touch_init(void)
         .glitch_ignore_cnt = 7,
         .flags.enable_internal_pullup = true,
     };
-    i2c_master_bus_handle_t i2c_bus;
-    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_config, &i2c_bus));
+    i2c_master_bus_handle_t i2c_bus = NULL;
+    ESP_RETURN_ON_ERROR(i2c_new_master_bus(&i2c_bus_config, &i2c_bus), TAG, "I2C bus init failed");
 
     esp_lcd_panel_io_handle_t tp_io_handle = NULL;
     esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_JD9366_CONFIG();
     tp_io_config.scl_speed_hz = EXAMPLE_TOUCH_I2C_CLK_HZ;
 
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_bus, &tp_io_config, &tp_io_handle));
+    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_i2c(i2c_bus, &tp_io_config, &tp_io_handle), TAG, "Touch IO init failed");
 
     /* Initialize touch HW */
     const esp_lcd_touch_config_t tp_cfg = {
@@ -331,9 +431,6 @@ static esp_err_t app_lvgl_init(void)
 {
     /* 初始化 esp_lvgl_adapter */
     esp_lv_adapter_config_t adapter_cfg = ESP_LV_ADAPTER_DEFAULT_CONFIG();
-    // 如需更大栈或把栈放 PSRAM，可在此修改，例如：
-    // adapter_cfg.task_stack_size = 16 * 1024;
-    // adapter_cfg.stack_in_psram = true;
     ESP_RETURN_ON_ERROR(esp_lv_adapter_init(&adapter_cfg), TAG, "esp_lv_adapter_init failed");
 
     /* 注册 MIPI DSI 显示 */
@@ -344,10 +441,6 @@ static esp_err_t app_lvgl_init(void)
         EXAMPLE_LCD_V_RES,
         EXAMPLE_LV_ROTATION
     );
-    // 如需自定义 buffer_height / use_psram 等，可在宏展开后修改：
-    // disp_cfg.profile.buffer_height = 100;
-    // disp_cfg.profile.use_psram = true;
-    // disp_cfg.tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_PARTIAL; // 与 EXAMPLE_TEAR_AVOID_MODE 保持一致
 
     lvgl_disp = esp_lv_adapter_register_display(&disp_cfg);
     if (lvgl_disp == NULL) {
@@ -388,6 +481,9 @@ void app_main(void)
 
     /* LVGL / adapter initialization */
     ESP_ERROR_CHECK(app_lvgl_init());
+
+    /* 启动 BOOT 按键控制任务 */
+    xTaskCreate(boot_button_task, "boot_btn_task", 3072, NULL, 5, NULL);
 
     // 挂载 EFC 资产，并在独立任务中启动开机动画
     ESP_ERROR_CHECK(mount_efc_assets());
