@@ -20,6 +20,16 @@
 #include "jd9366_init_cmds.h"
 #include "esp_lcd_touch_jd9366.h"
 
+#ifdef CONFIG_EXAMPLE_JD9366_DIRTY_LANDSCAPE
+#include "landscape_present.h"
+#if LV_COLOR_DEPTH != 16
+#error "The dirty landscape path requires RGB565"
+#endif
+#define EXAMPLE_SCAN_BUFFERS 2
+#else
+#define EXAMPLE_SCAN_BUFFERS 1
+#endif
+
 /* LCD size */
 #define EXAMPLE_LCD_H_RES   (800)
 #define EXAMPLE_LCD_V_RES   (1280)
@@ -68,7 +78,9 @@ static esp_lcd_touch_handle_t touch_handle = NULL;
 
 /* LVGL display and touch */
 static lv_display_t *lvgl_disp = NULL;
+#ifndef CONFIG_EXAMPLE_JD9366_DIRTY_LANDSCAPE
 static lv_indev_t *lvgl_touch_indev = NULL;
+#endif
 
 /* 屏幕显示状态 */
 static volatile bool s_screen_on = true;
@@ -216,7 +228,7 @@ static esp_err_t app_lcd_init(void)
         .dpi_clock_freq_mhz = 76,
         .virtual_channel = 0,
         .in_color_format = MIPI_DPI_PX_FORMAT,
-        .num_fbs = 1,
+        .num_fbs = EXAMPLE_SCAN_BUFFERS,
         .video_timing = {
             .h_size = EXAMPLE_LCD_H_RES,
             .v_size = EXAMPLE_LCD_V_RES,
@@ -316,6 +328,13 @@ static esp_err_t app_lvgl_init(void)
     };
     ESP_RETURN_ON_ERROR(lvgl_port_init(&lvgl_cfg), TAG, "LVGL port initialization failed");
 
+#ifdef CONFIG_EXAMPLE_JD9366_DIRTY_LANDSCAPE
+    if (!lvgl_port_lock(0)) {
+        return ESP_FAIL;
+    }
+    lvgl_disp = landscape_present_create(lcd_panel, touch_handle, EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES);
+    lvgl_port_unlock();
+#else
     /* Add LCD screen */
     ESP_LOGD(TAG, "Add LCD screen");
     const lvgl_port_display_cfg_t disp_cfg = {
@@ -362,6 +381,7 @@ static esp_err_t app_lvgl_init(void)
     if (lvgl_touch_indev == NULL) {
         return ESP_FAIL;
     }
+#endif
 
     return ESP_OK;
 }
@@ -382,7 +402,9 @@ void app_main(void)
 
     /* Show LVGL objects */
     if (lvgl_port_lock(0)) {
+#ifndef CONFIG_EXAMPLE_JD9366_DIRTY_LANDSCAPE
         lv_disp_set_rotation(lvgl_disp, LV_DISP_ROTATION_90);
+#endif
 
         // lv_demo_music();
         lv_demo_widgets();

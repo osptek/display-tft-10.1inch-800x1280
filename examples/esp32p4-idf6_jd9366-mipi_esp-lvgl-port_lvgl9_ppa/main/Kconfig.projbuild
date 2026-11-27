@@ -1,0 +1,11 @@
+menu "JD9366 example"
+
+    config EXAMPLE_JD9366_DIRTY_LANDSCAPE
+        bool "Use double-buffered PPA landscape presentation (RGB565)"
+        default n
+        help
+            Rotate only the changed region needed by each DPI framebuffer.
+            Requires ESP-IDF 6.1, RGB565 and PSRAM for three full-size buffers.
+            Disable to use the original esp_lvgl_port display path.
+
+endmenu
